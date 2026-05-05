@@ -2,21 +2,36 @@ package hospital.web.rest;
 
 import hospital.domain.Appointment;
 import hospital.domain.Doctor;
+import hospital.domain.Hospital;
+import hospital.domain.Specialty;
 import hospital.repository.AppointmentRepository;
 import hospital.repository.DoctorRepository;
 import hospital.repository.HospitalRepository;
 import hospital.repository.PaymentRepository;
+import hospital.repository.SpecialtyRepository;
 import hospital.repository.UserRepository;
 import hospital.service.dto.PageResponseDTO;
 import hospital.service.dto.PaginationDTO;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -24,6 +39,7 @@ public class AdminResource {
 
     private final UserRepository userRepository;
     private final DoctorRepository doctorRepository;
+    private final SpecialtyRepository specialtyRepository;
     private final HospitalRepository hospitalRepository;
     private final AppointmentRepository appointmentRepository;
     private final PaymentRepository paymentRepository;
@@ -31,12 +47,14 @@ public class AdminResource {
     public AdminResource(
         UserRepository userRepository,
         DoctorRepository doctorRepository,
+        SpecialtyRepository specialtyRepository,
         HospitalRepository hospitalRepository,
         AppointmentRepository appointmentRepository,
         PaymentRepository paymentRepository
     ) {
         this.userRepository = userRepository;
         this.doctorRepository = doctorRepository;
+        this.specialtyRepository = specialtyRepository;
         this.hospitalRepository = hospitalRepository;
         this.appointmentRepository = appointmentRepository;
         this.paymentRepository = paymentRepository;
@@ -111,10 +129,42 @@ public class AdminResource {
         );
     }
 
+    @GetMapping("/doctors/{id}")
+    public ResponseEntity<Map<String, Object>> getDoctor(@PathVariable Long id) {
+        Doctor doctor = doctorRepository.findById(id).orElseThrow(() -> new IllegalStateException("Doctor not found"));
+        return ResponseEntity.ok(doctorDetail(doctor));
+    }
+
+    @PostMapping("/doctors")
+    public ResponseEntity<Map<String, Object>> createDoctor(@Valid @RequestBody DoctorRequest request) {
+        Doctor doctor = new Doctor();
+        applyDoctorRequest(doctor, request);
+        Doctor savedDoctor = doctorRepository.save(doctor);
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            Map.of("message", "Bác sĩ đã được thêm mới", "doctor", doctorDetail(savedDoctor))
+        );
+    }
+
+    @PutMapping("/doctors/{id}")
+    public ResponseEntity<Map<String, Object>> updateDoctor(@PathVariable Long id, @Valid @RequestBody DoctorRequest request) {
+        Doctor doctor = doctorRepository.findById(id).orElseThrow(() -> new IllegalStateException("Doctor not found"));
+        applyDoctorRequest(doctor, request);
+        Doctor savedDoctor = doctorRepository.save(doctor);
+        return ResponseEntity.ok(Map.of("message", "Bác sĩ đã được cập nhật", "doctor", doctorDetail(savedDoctor)));
+    }
+
     @DeleteMapping("/doctors/{id}")
     public ResponseEntity<Map<String, Object>> deleteDoctor(@PathVariable Long id) {
-        doctorRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("id", id, "message", "Bác sĩ đã được xóa"));
+        Doctor doctor = doctorRepository.findById(id).orElseThrow(() -> new IllegalStateException("Doctor not found"));
+        try {
+            doctorRepository.delete(doctor);
+            doctorRepository.flush();
+            return ResponseEntity.ok(Map.of("id", id, "message", "Bác sĩ đã được xóa"));
+        } catch (DataIntegrityViolationException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                Map.of("error", "Không thể xóa bác sĩ vì còn dữ liệu liên quan", "code", "DOCTOR_DELETE_CONFLICT")
+            );
+        }
     }
 
     @GetMapping("/appointments")
@@ -175,6 +225,48 @@ public class AdminResource {
         return map;
     }
 
+    private Map<String, Object> doctorDetail(Doctor doctor) {
+        Map<String, Object> specialty = new LinkedHashMap<>();
+        if (doctor.getSpecialty() != null) {
+            specialty.put("id", doctor.getSpecialty().getId());
+            specialty.put("name", doctor.getSpecialty().getName());
+            specialty.put("vietnamName", doctor.getSpecialty().getVietnamName());
+        }
+
+        Map<String, Object> hospital = new LinkedHashMap<>();
+        if (doctor.getHospital() != null) {
+            hospital.put("id", doctor.getHospital().getId());
+            hospital.put("name", doctor.getHospital().getName());
+            hospital.put("address", doctor.getHospital().getAddress());
+            hospital.put("phone", doctor.getHospital().getPhone());
+            hospital.put("email", doctor.getHospital().getEmail());
+        }
+
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", doctor.getId());
+        map.put("fullName", doctor.getFullName());
+        map.put("email", doctor.getEmail());
+        map.put("phoneNumber", doctor.getPhoneNumber());
+        map.put("bio", doctor.getBio());
+        map.put("avatar", doctor.getAvatar());
+        map.put("experience", doctor.getExperience());
+        map.put("license", doctor.getLicense());
+        map.put("price", doctor.getPrice());
+        map.put("rating", doctor.getRating());
+        map.put("reviewCount", doctor.getReviewCount());
+        map.put("specialty", specialty);
+        map.put("hospital", hospital);
+        map.put(
+            "appointments",
+            appointmentRepository
+                .findAll()
+                .stream()
+                .filter(a -> a.getDoctor() != null && a.getDoctor().getId().equals(doctor.getId()))
+                .count()
+        );
+        return map;
+    }
+
     private Map<String, Object> appointmentSummary(Appointment appointment) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", appointment.getId());
@@ -189,6 +281,29 @@ public class AdminResource {
         return map;
     }
 
+    private void applyDoctorRequest(Doctor doctor, DoctorRequest request) {
+        doctor.setFullName(request.fullName().trim());
+        doctor.setEmail(request.email());
+        doctor.setPhoneNumber(request.phoneNumber());
+        doctor.setBio(request.bio());
+        doctor.setAvatar(request.avatar());
+        doctor.setExperience(request.experience());
+        doctor.setLicense(request.license());
+        doctor.setPrice(request.price());
+        doctor.setRating(request.rating());
+        doctor.setReviewCount(request.reviewCount());
+
+        Specialty specialty = specialtyRepository
+            .findById(request.specialtyId())
+            .orElseThrow(() -> new IllegalStateException("Specialty not found"));
+        Hospital hospital = hospitalRepository
+            .findById(request.hospitalId())
+            .orElseThrow(() -> new IllegalStateException("Hospital not found"));
+
+        doctor.setSpecialty(specialty);
+        doctor.setHospital(hospital);
+    }
+
     private <T> List<T> slice(List<T> items, int page, int limit) {
         int fromIndex = Math.min(Math.max(page - 1, 0) * limit, items.size());
         int toIndex = Math.min(fromIndex + limit, items.size());
@@ -196,4 +311,19 @@ public class AdminResource {
     }
 
     public record UpdateAppointmentStatusRequest(String status) {}
+
+    public record DoctorRequest(
+        @NotBlank String fullName,
+        String email,
+        String phoneNumber,
+        String bio,
+        String avatar,
+        Integer experience,
+        String license,
+        Long price,
+        Double rating,
+        Integer reviewCount,
+        @NotNull Long specialtyId,
+        @NotNull Long hospitalId
+    ) {}
 }
