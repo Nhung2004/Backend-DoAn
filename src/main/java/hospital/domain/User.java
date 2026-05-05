@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -65,6 +66,25 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Size(max = 256)
     @Column(name = "image_url", length = 256)
     private String imageUrl;
+
+    @Size(max = 20)
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Size(max = 10)
+    @Column(name = "gender", length = 10)
+    private String gender;
+
+    @Size(max = 500)
+    @Column(name = "address", length = 500)
+    private String address;
+
+    @Size(max = 100)
+    @Column(name = "health_insurance", length = 100)
+    private String healthInsurance;
 
     @Size(max = 20)
     @Column(name = "activation_key", length = 20)
@@ -146,6 +166,46 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
         this.imageUrl = imageUrl;
     }
 
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public void setDateOfBirth(LocalDate dateOfBirth) {
+        this.dateOfBirth = dateOfBirth;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getHealthInsurance() {
+        return healthInsurance;
+    }
+
+    public void setHealthInsurance(String healthInsurance) {
+        this.healthInsurance = healthInsurance;
+    }
+
     public boolean isActivated() {
         return activated;
     }
@@ -220,6 +280,11 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
             ", lastName='" + lastName + '\'' +
             ", email='" + email + '\'' +
             ", imageUrl='" + imageUrl + '\'' +
+            ", phoneNumber='" + phoneNumber + '\'' +
+            ", dateOfBirth='" + dateOfBirth + '\'' +
+            ", gender='" + gender + '\'' +
+            ", address='" + address + '\'' +
+            ", healthInsurance='" + healthInsurance + '\'' +
             ", activated='" + activated + '\'' +
             ", langKey='" + langKey + '\'' +
             ", activationKey='" + activationKey + '\'' +

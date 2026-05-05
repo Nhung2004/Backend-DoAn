@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <changeSet id="20260424000000-1" author="openai">
+        <addColumn tableName="jhi_user">
+            <column name="phone_number" type="varchar(20)"/>
+            <column name="date_of_birth" type="date"/>
+            <column name="gender" type="varchar(10)"/>
+            <column name="address" type="varchar(500)"/>
+            <column name="health_insurance" type="varchar(100)"/>
+        </addColumn>
+
+        <addColumn tableName="appointment">
+            <column name="payment_status" type="varchar(20)" defaultValue="UNPAID"/>
+            <column name="created_at" type="timestamp"/>
+            <column name="updated_at" type="timestamp"/>
+        </addColumn>
+
+        <addColumn tableName="review">
+            <column name="updated_at" type="timestamp"/>
+        </addColumn>
+
+        <createTable tableName="medical_record">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="diagnosis" type="text"/>
+            <column name="treatment" type="text"/>
+            <column name="notes" type="text"/>
+            <column name="created_at" type="timestamp"/>
+            <column name="updated_at" type="timestamp"/>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="appointment_id" type="bigint"/>
+            <column name="doctor_id" type="bigint"/>
+        </createTable>
+
+        <createTable tableName="payment">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="appointment_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="payment_method" type="varchar(50)"/>
+            <column name="status" type="varchar(20)"/>
+            <column name="transaction_id" type="varchar(100)"/>
+            <column name="created_at" type="timestamp"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="medical_record"
+                                 constraintName="fk_medical_record_user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"/>
+
+        <addForeignKeyConstraint baseColumnNames="appointment_id"
+                                 baseTableName="medical_record"
+                                 constraintName="fk_medical_record_appointment_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="appointment"/>
+
+        <addForeignKeyConstraint baseColumnNames="doctor_id"
+                                 baseTableName="medical_record"
+                                 constraintName="fk_medical_record_doctor_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="doctor"/>
+
+        <addForeignKeyConstraint baseColumnNames="appointment_id"
+                                 baseTableName="payment"
+                                 constraintName="fk_payment_appointment_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="appointment"/>
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="payment"
+                                 constraintName="fk_payment_user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"/>
+    </changeSet>
+</databaseChangeLog>

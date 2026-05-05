@@ -5,6 +5,7 @@ import static hospital.security.SecurityUtils.JWT_ALGORITHM;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
 import hospital.management.SecurityMetersService;
+import hospital.security.TokenBlacklistService;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
@@ -14,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
@@ -26,9 +28,12 @@ public class SecurityJwtConfiguration {
     private String jwtKey;
 
     @Bean
-    public JwtDecoder jwtDecoder(SecurityMetersService metersService) {
+    public JwtDecoder jwtDecoder(SecurityMetersService metersService, TokenBlacklistService tokenBlacklistService) {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey()).macAlgorithm(JWT_ALGORITHM).build();
         return token -> {
+            if (tokenBlacklistService.isRevoked(token)) {
+                throw new JwtException("Jwt revoked");
+            }
             try {
                 return jwtDecoder.decode(token);
             } catch (Exception e) {

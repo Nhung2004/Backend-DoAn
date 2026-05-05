@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog-ext.xsd">
+
+    <changeSet id="20260503000000-1" author="openai">
+        <createTable tableName="schedule">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="doctor_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="work_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="start_time" type="time(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_time" type="time(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createTable tableName="time_slot">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="schedule_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="slot_time" type="time(6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_booked" type="boolean" defaultValueBoolean="false"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseColumnNames="doctor_id"
+            baseTableName="schedule"
+            constraintName="fk_schedule_doctor_id"
+            referencedColumnNames="id"
+            referencedTableName="doctor"/>
+
+        <addForeignKeyConstraint
+            baseColumnNames="schedule_id"
+            baseTableName="time_slot"
+            constraintName="fk_time_slot_schedule_id"
+            referencedColumnNames="id"
+            referencedTableName="schedule"
+            onDelete="CASCADE"/>
+
+        <addUniqueConstraint
+            tableName="time_slot"
+            columnNames="schedule_id, slot_time"
+            constraintName="ux_time_slot_schedule_slot_time"/>
+    </changeSet>
+</databaseChangeLog>

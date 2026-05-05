@@ -1,12 +1,16 @@
 package hospital.web.rest;
 
 import hospital.config.Constants;
+import hospital.domain.Appointment;
 import hospital.domain.User;
+import hospital.repository.AppointmentRepository;
 import hospital.repository.UserRepository;
 import hospital.security.AuthoritiesConstants;
 import hospital.service.MailService;
 import hospital.service.UserService;
 import hospital.service.dto.AdminUserDTO;
+import hospital.service.dto.PageResponseDTO;
+import hospital.service.dto.PaginationDTO;
 import hospital.web.rest.errors.BadRequestAlertException;
 import hospital.web.rest.errors.EmailAlreadyUsedException;
 import hospital.web.rest.errors.LoginAlreadyUsedException;
@@ -14,21 +18,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
-import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
 
 /**
@@ -70,6 +68,7 @@ public class UserResource {
             "langKey",
             "createdBy",
             "createdDate",
+            "createdAt",
             "lastModifiedBy",
             "lastModifiedDate"
         )
@@ -84,11 +83,19 @@ public class UserResource {
 
     private final UserRepository userRepository;
 
+    private final AppointmentRepository appointmentRepository;
+
     private final MailService mailService;
 
-    public UserResource(UserService userService, UserRepository userRepository, MailService mailService) {
+    public UserResource(
+        UserService userService,
+        UserRepository userRepository,
+        AppointmentRepository appointmentRepository,
+        MailService mailService
+    ) {
         this.userService = userService;
         this.userRepository = userRepository;
+        this.appointmentRepository = appointmentRepository;
         this.mailService = mailService;
     }
 
@@ -166,19 +173,34 @@ public class UserResource {
      */
     @GetMapping("/users")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<List<AdminUserDTO>> getAllUsers(@org.springdoc.core.annotations.ParameterObject Pageable pageable) {
+    public ResponseEntity<PageResponseDTO<Map<String, Object>>> getAllUsers(
+        @RequestParam(defaultValue = "1") int page,
+        @RequestParam(defaultValue = "20") int limit,
+        @RequestParam(required = false) String search,
+        @RequestParam(defaultValue = "createdAt") String sortBy,
+        @RequestParam(defaultValue = "desc") String sortOrder
+    ) {
         LOG.debug("REST request to get all User for an admin");
-        if (!onlyContainsAllowedProperties(pageable)) {
-            return ResponseEntity.badRequest().build();
+        List<User> users = userRepository.findAll();
+        if (search != null && !search.isBlank()) {
+            String like = search.toLowerCase();
+            users = users
+                .stream()
+                .filter(
+                    u ->
+                        (u.getLogin() != null && u.getLogin().toLowerCase().contains(like)) ||
+                        (u.getEmail() != null && u.getEmail().toLowerCase().contains(like)) ||
+                        (fullName(u).toLowerCase().contains(like)) ||
+                        (u.getPhoneNumber() != null && u.getPhoneNumber().toLowerCase().contains(like))
+                )
+                .toList();
         }
-
-        final Page<AdminUserDTO> page = userService.getAllManagedUsers(pageable);
-        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
-        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
-    }
-
-    private boolean onlyContainsAllowedProperties(Pageable pageable) {
-        return pageable.getSort().stream().map(Sort.Order::getProperty).allMatch(ALLOWED_ORDERED_PROPERTIES::contains);
+        users = users.stream().sorted(sorter(sortBy, sortOrder)).toList();
+        List<User> paged = slice(users, page, limit);
+        List<Map<String, Object>> data = paged.stream().map(this::toSummary).toList();
+        return ResponseEntity.ok(
+            new PageResponseDTO<>(data, new PaginationDTO(page, limit, users.size(), totalPages(users.size(), limit)))
+        );
     }
 
     /**
@@ -200,13 +222,70 @@ public class UserResource {
      * @param login the login of the user to delete.
      * @return the {@link ResponseEntity} with status {@code 204 (NO_CONTENT)}.
      */
-    @DeleteMapping("/users/{login}")
+    @DeleteMapping("/users/{id}")
     @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
-    public ResponseEntity<Void> deleteUser(@PathVariable("login") @Pattern(regexp = Constants.LOGIN_REGEX) String login) {
-        LOG.debug("REST request to delete User: {}", login);
-        userService.deleteUser(login);
-        return ResponseEntity.noContent()
-            .headers(HeaderUtil.createAlert(applicationName, "A user is deleted with identifier " + login, login))
-            .build();
+    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable("id") String id) {
+        LOG.debug("REST request to delete User: {}", id);
+        Optional<User> user = userRepository.findOneByLogin(id);
+        if (user.isPresent()) {
+            userRepository.delete(user.orElseThrow());
+        } else if (id.matches("\\d+")) {
+            userRepository.findById(Long.parseLong(id)).ifPresent(userRepository::delete);
+        } else {
+            userService.deleteUser(id);
+        }
+        return ResponseEntity.ok(Map.of("id", id, "message", "Người dùng đã được xóa"));
+    }
+
+    private Map<String, Object> toSummary(User user) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", user.getId());
+        map.put("email", user.getEmail());
+        map.put(
+            "fullName",
+            ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim()
+        );
+        map.put("phoneNumber", user.getPhoneNumber());
+        map.put("createdAt", user.getCreatedDate());
+        map.put(
+            "appointments",
+            appointmentRepository.findAll().stream().filter(a -> a.getUser() != null && a.getUser().getId().equals(user.getId())).count()
+        );
+        return map;
+    }
+
+    private List<User> slice(List<User> items, int page, int limit) {
+        int fromIndex = Math.min(Math.max(page - 1, 0) * limit, items.size());
+        int toIndex = Math.min(fromIndex + limit, items.size());
+        return fromIndex >= toIndex ? List.of() : items.subList(fromIndex, toIndex);
+    }
+
+    private int totalPages(int total, int limit) {
+        if (limit <= 0) {
+            return 1;
+        }
+        return (int) Math.ceil((double) total / (double) limit);
+    }
+
+    private Comparator<User> sorter(String sortBy, String sortOrder) {
+        Comparator<User> comparator;
+        if ("login".equalsIgnoreCase(sortBy)) {
+            comparator = Comparator.comparing(u -> Optional.ofNullable(u.getLogin()).orElse(""));
+        } else if ("email".equalsIgnoreCase(sortBy)) {
+            comparator = Comparator.comparing(u -> Optional.ofNullable(u.getEmail()).orElse(""));
+        } else if ("firstName".equalsIgnoreCase(sortBy)) {
+            comparator = Comparator.comparing(u -> Optional.ofNullable(u.getFirstName()).orElse(""));
+        } else if ("lastName".equalsIgnoreCase(sortBy)) {
+            comparator = Comparator.comparing(u -> Optional.ofNullable(u.getLastName()).orElse(""));
+        } else {
+            comparator = Comparator.comparing(u -> Optional.ofNullable(u.getCreatedDate()).orElse(Instant.EPOCH));
+        }
+        return "asc".equalsIgnoreCase(sortOrder) ? comparator : comparator.reversed();
+    }
+
+    private String fullName(User user) {
+        return (
+            (user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())
+        ).trim();
     }
 }

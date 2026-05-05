@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:ext="http://www.liquibase.org/xml/ns/dbchangelog-ext"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd
+                        http://www.liquibase.org/xml/ns/dbchangelog-ext http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-ext.xsd">
+
+    <changeSet id="20260421000000-1" author="zencoder">
+        <createTable tableName="specialty">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="vietnam_name" type="varchar(255)"/>
+            <column name="icon" type="varchar(255)"/>
+            <column name="description" type="varchar(255)"/>
+        </createTable>
+
+        <createTable tableName="hospital">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="varchar(255)"/>
+            <column name="phone" type="varchar(255)"/>
+            <column name="email" type="varchar(255)"/>
+            <column name="avatar" type="varchar(255)"/>
+            <column name="rating" type="decimal(21,2)"/>
+            <column name="review_count" type="integer"/>
+            <column name="description" type="varchar(255)"/>
+        </createTable>
+
+        <createTable tableName="doctor">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="full_name" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+            <column name="email" type="varchar(255)"/>
+            <column name="phone_number" type="varchar(20)"/>
+            <column name="bio" type="text"/>
+            <column name="avatar" type="varchar(255)"/>
+            <column name="experience" type="integer"/>
+            <column name="license" type="varchar(255)"/>
+            <column name="price" type="bigint"/>
+            <column name="rating" type="decimal(21,2)"/>
+            <column name="review_count" type="integer"/>
+            <column name="specialty_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="hospital_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createTable tableName="appointment">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="appointment_date" type="date">
+                <constraints nullable="false" />
+            </column>
+            <column name="appointment_time" type="time">
+                <constraints nullable="false" />
+            </column>
+            <column name="status" type="varchar(255)"/>
+            <column name="reason" type="varchar(255)"/>
+            <column name="notes" type="varchar(255)"/>
+            <column name="price" type="bigint"/>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="doctor_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="hospital_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createTable tableName="review">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="rating" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="comment" type="varchar(255)"/>
+            <column name="created_at" type="timestamp"/>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="doctor_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseColumnNames="specialty_id"
+                                 baseTableName="doctor"
+                                 constraintName="fk_doctor_specialty_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="specialty"/>
+
+        <addForeignKeyConstraint baseColumnNames="hospital_id"
+                                 baseTableName="doctor"
+                                 constraintName="fk_doctor_hospital_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="hospital"/>
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="appointment"
+                                 constraintName="fk_appointment_user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"/>
+
+        <addForeignKeyConstraint baseColumnNames="doctor_id"
+                                 baseTableName="appointment"
+                                 constraintName="fk_appointment_doctor_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="doctor"/>
+
+        <addForeignKeyConstraint baseColumnNames="hospital_id"
+                                 baseTableName="appointment"
+                                 constraintName="fk_appointment_hospital_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="hospital"/>
+
+        <addForeignKeyConstraint baseColumnNames="user_id"
+                                 baseTableName="review"
+                                 constraintName="fk_review_user_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="jhi_user"/>
+
+        <addForeignKeyConstraint baseColumnNames="doctor_id"
+                                 baseTableName="review"
+                                 constraintName="fk_review_doctor_id"
+                                 referencedColumnNames="id"
+                                 referencedTableName="doctor"/>
+    </changeSet>
+</databaseChangeLog>
